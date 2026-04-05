@@ -3,6 +3,7 @@ A device used for the benefit of elderly people, which alert others and themselv
 
 <img width="1336" height="565" alt="Screenshot 2026-04-02 175832" src="https://github.com/user-attachments/assets/1fe05ee9-dede-4002-9e7a-adbc16705e65" />
 
-<img width="620" height="352" alt="image" src="https://github.com/user-attachments/assets/247d25fd-3dd3-42aa-87e7-be6405013e85" />
+<img width="837" height="470" alt="image" src="https://github.com/user-attachments/assets/29ecaed8-b829-4325-afcd-d8aabd4418c1" />
+
 
 
