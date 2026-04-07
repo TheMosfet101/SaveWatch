@@ -1,0 +1,152 @@
+
+#include <Adafruit_VL53L0X.h>
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+#define Device_1_ADD 0x29
+#define Device_2_ADD 0x27
+LiquidCrystal_I2C lcd(0x27,16,2);
+bool DEV_ON = false;
+bool BUZZ_ON = true;
+bool SOSmess = false;
+int BUZZ_COUNT = 0;
+int X_min = 270;
+int X_max = 407;
+int Y_min = 270;
+int Y_max = 407;
+int Z_min = 270;
+int Z_max = 407;
+const int sampleSize = 10;
+int ReadAxis(int Pinaxis); 
+void sendMorse(int duration);
+void AutoCalibrate(int xRaw, int yRaw, int zRaw);
+void setup() {
+    Wire.begin();
+    lcd.init();
+    lcd.backlight();
+    Serial.begin(115200);
+    while(!Serial) {
+        delay(1);
+    }
+    if(!lox.begin() && DEV_ON){
+        lcd.setCursor(0,0);
+        lcd.print("ERROR");
+        lcd.setCursor(0,1);
+        lcd.print("COMPONENT FAILURE");
+        delay(300);
+        lcd.clear();
+        delay(300);
+    }
+    pinMode(2,OUTPUT);
+    pinMode(3,OUTPUT);
+    pinMode(4,OUTPUT);
+    pinMode(6,OUTPUT);
+    pinMode(12,OUTPUT);
+    pinMode(8,OUTPUT);
+    pinMode(5,INPUT_PULLUP);
+    pinMode(7,INPUT_PULLUP);
+    pinMode(9,INPUT_PULLUP);
+}
+void sendMorse(int duration){
+    digitalWrite(12,HIGH);
+    delay(duration);
+    digitalWrite(12,LOW);
+    delay(200);
+}
+void loop() {
+    int Xraw = ReadAxis(A3);
+    int Yraw = ReadAxis(A2);
+    int Zraw = ReadAxis(A1);
+    if(digitalRead(5) == LOW) {
+        DEV_ON = true;
+        AutoCalibrate(Xraw,Yraw,Zraw);
+    } else if(digitalRead(7) == LOW) {
+        DEV_ON = false;
+    }
+    if(digitalRead(9) == LOW){
+        BUZZ_ON = true;
+        BUZZ_COUNT += 1;
+    }
+    if(BUZZ_COUNT == 2){
+        BUZZ_ON = false;
+        BUZZ_COUNT = 0;
+    }
+    long x_G = map(Xraw,X_min,X_max,-1000, 1000) / 1000;
+    long y_G = map(Yraw,Y_min,Y_max,-1000,1000) / 1000;
+    long z_G = map(Zraw,Z_min,Z_max,-1000,1000) / 1000;
+    if(((3.00 - abs(x_G)) <= 0.5 && (3.00 - abs(z_G)) <= 0.5) || ((3.00 - abs(y_G)) <= 0.5 && (3.00 - abs(z_G)) <= 0.5)){
+        digitalWrite(6,HIGH);
+        BUZZ_ON = true;
+        SOSmess = true;
+        lcd.setCursor(0,0);
+        lcd.print("COLLISION");
+        lcd.setCursor(0,1);
+        lcd.print("DETECTED!");
+    } else {
+        digitalWrite(6,LOW);
+        BUZZ_ON = false;
+        lcd.clear();
+        SOSmess = false;
+    }
+    if(SOSmess){
+        sendMorse(200); sendMorse(200); sendMorse(200);
+        delay(400);
+        sendMorse(600); sendMorse(600); sendMorse(600);
+        delay(400);
+        sendMorse(200); sendMorse(200); sendMorse(200);
+        delay(3000);
+    }
+    if(DEV_ON){
+        digitalWrite(4,HIGH);
+        digitalWrite(3,LOW);
+    } else if(!DEV_ON){
+        digitalWrite(4,LOW);
+        digitalWrite(3,HIGH);
+    }
+    if(BUZZ_ON){
+        digitalWrite(8,HIGH);
+    } else {
+        digitalWrite(8,LOW);
+    }
+    VL53L0X_RangingMeasurementData_t measure;
+    lox.rangingTest(&measure,true);
+    if(measure.RangeStatus == 3 && DEV_ON) {
+        lcd.setCursor(0,0);
+        lcd.print("TOO CLOSE!");
+        BUZZ_ON = true;
+        digitalWrite(6,HIGH);
+    } else {
+        digitalWrite(6,LOW);
+        BUZZ_ON = false;
+        lcd.clear();
+    }
+}
+int ReadAxis(int Pinaxis) { 
+    long reading = 0;
+    analogRead(Pinaxis);
+    delay(1);
+    for(int i = 0; i < sampleSize; i++){
+        reading += analogRead(Pinaxis);
+    }
+    return reading / sampleSize;
+}
+void AutoCalibrate(int xRaw, int yRaw, int zRaw) {
+    if (xRaw < X_min) {
+        X_min = xRaw;
+    }
+    if (xRaw > X_max) {
+        X_max = xRaw;
+    }
+    if (yRaw < Y_min) {
+        Y_min = yRaw;
+    }
+    if (yRaw > Y_max) {
+        Y_max = yRaw;
+    }
+    if (zRaw < Z_min) {
+        Z_min = zRaw;
+    }
+    if (zRaw > Z_max) {
+        Z_max = zRaw;
+    }
+}
