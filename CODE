@@ -16,10 +16,13 @@ int Y_min = 270;
 int Y_max = 407;
 int Z_min = 270;
 int Z_max = 407;
+char line0[17] = "";
+char line1[17] = "";
 const int sampleSize = 10;
 int ReadAxis(int Pinaxis); 
 void sendMorse(int duration);
 void AutoCalibrate(int xRaw, int yRaw, int zRaw);
+static const int XSHUT_PIN = -1;  
 void setup() {
     Wire.begin();
     lcd.init();
@@ -28,7 +31,7 @@ void setup() {
     while(!Serial) {
         delay(1);
     }
-    if(!lox.begin() && DEV_ON){
+    if(!lox.begin()){
         lcd.setCursor(0,0);
         lcd.print("ERROR");
         lcd.setCursor(0,1);
@@ -36,6 +39,7 @@ void setup() {
         delay(300);
         lcd.clear();
         delay(300);
+        while(1);
     }
     pinMode(2,OUTPUT);
     pinMode(3,OUTPUT);
@@ -66,14 +70,15 @@ void loop() {
     if(digitalRead(9) == LOW){
         BUZZ_ON = true;
         BUZZ_COUNT += 1;
+        delay(200);
     }
     if(BUZZ_COUNT == 2){
         BUZZ_ON = false;
         BUZZ_COUNT = 0;
     }
-    long x_G = map(Xraw,X_min,X_max,-1000, 1000) / 1000;
-    long y_G = map(Yraw,Y_min,Y_max,-1000,1000) / 1000;
-    long z_G = map(Zraw,Z_min,Z_max,-1000,1000) / 1000;
+    float x_G = map(Xraw,X_min,X_max,-1000, 1000) / 1000;
+    float y_G = map(Yraw,Y_min,Y_max,-1000,1000) / 1000;
+    float z_G = map(Zraw,Z_min,Z_max,-1000,1000) / 1000;
     if(((3.00 - abs(x_G)) <= 0.5 && (3.00 - abs(z_G)) <= 0.5) || ((3.00 - abs(y_G)) <= 0.5 && (3.00 - abs(z_G)) <= 0.5)){
         digitalWrite(6,HIGH);
         BUZZ_ON = true;
@@ -90,11 +95,11 @@ void loop() {
     }
     if(SOSmess){
         sendMorse(200); sendMorse(200); sendMorse(200);
-        delay(400);
+        millis(400);
         sendMorse(600); sendMorse(600); sendMorse(600);
-        delay(400);
+        millis(400);
         sendMorse(200); sendMorse(200); sendMorse(200);
-        delay(3000);
+        millis(3000);
     }
     if(DEV_ON){
         digitalWrite(4,HIGH);
@@ -109,8 +114,8 @@ void loop() {
         digitalWrite(8,LOW);
     }
     VL53L0X_RangingMeasurementData_t measure;
-    lox.rangingTest(&measure,true);
-    if(measure.RangeStatus == 3 && DEV_ON) {
+    lox.rangingTest(&measure,false);
+    if(measure.RangeStatus != 4 && measure.RangeMilliMeter < 120 && DEV_ON) {
         lcd.setCursor(0,0);
         lcd.print("TOO CLOSE!");
         BUZZ_ON = true;
@@ -121,6 +126,7 @@ void loop() {
         lcd.clear();
     }
 }
+
 int ReadAxis(int Pinaxis) { 
     long reading = 0;
     analogRead(Pinaxis);
@@ -148,5 +154,18 @@ void AutoCalibrate(int xRaw, int yRaw, int zRaw) {
     }
     if (zRaw > Z_max) {
         Z_max = zRaw;
+    }
+}
+void updateLCD(const char* line0, const char* line1) {
+    if (strcmp(line0, lastLcdLine0) != 0 || strcmp(line1, lastLcdLine1) != 0) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print(line0);
+        lcd.setCursor(0, 1);
+        lcd.print(line1);
+        strncpy(lastLcdLine0, line0, 16);
+        lastLcdLine0[16] = '\0'; 
+        strncpy(lastLcdLine1, line1, 16);
+        lastLcdLine1[16] = '\0';
     }
 }
